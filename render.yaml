@@ -1,0 +1,16 @@
+# Render Blueprint: the FastAPI backend (clip saving + share pages).
+# Note: the free plan's disk is wiped on every restart/redeploy, so saved clips are temporary.
+services:
+  - type: web
+    name: suitup-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FRONTEND_URL
+        sync: false   # set to your Vercel URL, e.g. https://suit-up.vercel.app

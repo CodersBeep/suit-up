@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suit Up</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <section class="card">
+    <div>
+      <h1>Suit Up</h1>
+      <p class="sub">Raise both open palms — the space between your hands turns you into a hero. Live.</p>
+    </div>
+
+    <div>
+      <label>1 · Pick your hero</label>
+      <div class="heroes" id="heroes">
+        <button class="hero on" data-id="spiderman"><i style="background:linear-gradient(135deg,#c4142b 55%,#1c3f9e 55%)"></i>Spider-Man<small></small><kbd>1</kbd></button>
+        <button class="hero" data-id="spiderwoman"><i style="background:linear-gradient(135deg,#efeff4 55%,#ff4fa3 55%)"></i>Spider-Woman<small></small><kbd>2</kbd></button>
+        <button class="hero" data-id="ironman"><i style="background:linear-gradient(135deg,#a10f1c 55%,#d8a321 55%)"></i>Iron Man<small></small><kbd>3</kbd></button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Reveal</label>
+        <select id="mode">
+          <option value="window">Hand window</option>
+          <option value="full">Full suit</option>
+        </select>
+      </div>
+      <div>
+        <label>Background</label>
+        <select id="world">
+          <option value="auto">Hero scene</option>
+          <option value="nyc">NYC at night</option>
+          <option value="corridor">Sci-fi corridor</option>
+          <option value="reactor">Reactor chamber</option>
+          <option value="blur">My room (blurred)</option>
+          <option value="room">My room</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label>Format</label>
+      <select id="format">
+        <option value="9:16">9:16 — Reels / Shorts</option>
+        <option value="16:9">16:9 — Landscape</option>
+      </select>
+    </div>
+
+    <button id="start" class="primary" disabled>2 · Start camera</button>
+    <button id="rec" disabled>● Record</button>
+    <div id="clip" hidden>
+      <label>Your clip</label>
+      <input id="clipLink" readonly>
+      <div class="row"><button id="copy">Copy link</button><a id="dl" class="btn" download>Download</a></div>
+    </div>
+    <div id="msg">Loading motion capture…</div>
+    <div class="hint">Tips: stand ~1.5m back so shoulders + hands are in frame · good front light · <kbd>Space</kbd> toggles full suit</div>
+  </section>
+
+  <section class="stage">
+    <canvas id="out" width="540" height="960"></canvas>
+    <div class="hud">
+      <span class="chip" id="cFps">– fps</span>
+      <span class="chip" id="cTrack">tracking: –</span>
+    </div>
+  </section>
+</main>
+<video id="cam" playsinline muted hidden></video>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
