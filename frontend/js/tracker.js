@@ -91,24 +91,27 @@ export class Tracker {
     return { pose, face, hands, mask };
   }
 
-  // run every frame. Hands + mask every frame; pose and face alternate to save time.
-  update(video, rafNow, { needBody = true } = {}) {
+  // Run once per new camera frame. Only ONE landmark model runs per frame so each frame stays short
+  // (running all of them back to back froze phones): hands every other frame, body and face take turns
+  // in between. The 3D heroes interpolate between updates, so motion still looks smooth.
+  // The person mask is only needed for the drawn-suit fallback, so it's skipped for 3D / photo heroes.
+  update(video, rafNow, { needMask = true } = {}) {
     const now = this._ts(rafNow);
     this.frame++;
-    try { this.hands = this.handLm.detectForVideo(video, now).landmarks || []; }
-    catch (e) { console.warn("hands", e); }
-    if (!needBody) return;
-
+    const f = this.frame % 4;
     try {
-      if (this.frame % 2 === 0) {
+      if (f % 2 === 0) this.hands = this.handLm.detectForVideo(video, now).landmarks || [];
+      else if (f === 1) {
         const r = this.poseLm.detectForVideo(video, now);
         this.pose = r.landmarks?.[0] || null;
         this.poseWorld = r.worldLandmarks?.[0] || null;   // 3D, metres, hip-centred — drives 3D heroes
       } else this.face = this.faceLm.detectForVideo(video, now).faceLandmarks?.[0] || null;
-    } catch (e) { console.warn("pose/face", e); }
+    } catch (e) { console.warn("tracking", e); }
 
-    try { this.seg.segmentForVideo(video, now, r => this._readMask(r)); }
-    catch (e) { console.warn("segment", e); }
+    if (needMask && f % 2 === 1) {
+      try { this.seg.segmentForVideo(video, now, r => this._readMask(r)); }
+      catch (e) { console.warn("segment", e); }
+    }
   }
 
   _readMask(r) {

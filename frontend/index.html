@@ -70,7 +70,8 @@
     </div>
   </section>
 </main>
-<video id="cam" playsinline muted hidden></video>
+<!-- not display:none — iOS Safari stops updating hidden videos, which froze the camera -->
+<video id="cam" playsinline muted autoplay style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none"></video>
 <script type="importmap">
 { "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",

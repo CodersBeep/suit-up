@@ -30,12 +30,40 @@ function refresh() {
   $("rec").disabled = !running;
 }
 
+const MOBILE = matchMedia("(pointer: coarse)").matches;
+
+// ---------- heroes load on demand (each 3D model is several MB — phones shouldn't download all of them) ----------
+const loading = {};
+function loadHero(id) {
+  return loading[id] ||= (async () => {
+    const ch = CHARACTERS[id];
+    if (MODELS[id]) {
+      try { ch.avatar = await Avatar3D.load(MODELS[id], tracker); }
+      catch (e) { console.warn("3D model", id, e); }
+    }
+    if (!ch.avatar) {
+      try { ch.tex = await HeroTexture.load(`assets/heroes/${id}.jpg`, tracker); }
+      catch (e) { console.warn("hero image", id, e); }
+    }
+    tracker.releaseImageTasks();   // free the still-image detectors once the reference is prepared
+    const badge = document.querySelector(`.hero[data-id=${id}] small`);
+    if (badge) badge.textContent = ch.avatar ? "3D" : ch.tex ? "real" : "drawn";
+  })();
+}
+
 // ---------- controls ----------
-function pickHero(id) {
+async function pickHero(id) {
   if (!CHARACTERS[id]) return;
   opts.character = id;
   document.querySelectorAll(".hero").forEach(b => b.classList.toggle("on", b.dataset.id === id));
+  if (!ready) return;   // boot loads the selected hero
+  const ch = CHARACTERS[id];
+  if (!ch.avatar && !ch.tex) msg(`Loading ${ch.name}…`);
+  await loadHero(id);
+  if (opts.character === id) msg(running ? "Live — raise both open palms!" : "Ready. Start the camera.");
 }
+// show what each hero will be before it's loaded
+for (const id of Object.keys(MODELS)) { const b = document.querySelector(`.hero[data-id=${id}] small`); if (b) b.textContent = "3D"; }
 document.querySelectorAll(".hero").forEach(b => (b.onclick = () => pickHero(b.dataset.id)));
 $("mode").onchange = e => (opts.mode = e.target.value);
 $("world").onchange = e => (opts.world = e.target.value);
@@ -56,21 +84,9 @@ addEventListener("keydown", e => {
   health().catch(() => console.warn("Backend not reachable yet (saving clips needs it)"));
   try {
     await tracker.load(step => msg(`Loading motion capture… (${step})`));
-    // real heroes: any hero with a photo in assets/heroes/<id>.jpg uses it (else the drawn suit)
-    msg("Preparing heroes…");
-    for (const id of Object.keys(CHARACTERS)) {
-      if (MODELS[id]) {
-        try { msg(`Loading 3D ${CHARACTERS[id].name}…`); CHARACTERS[id].avatar = await Avatar3D.load(MODELS[id], tracker); }
-        catch (e) { console.warn("3D model", id, e); }
-      }
-      if (!CHARACTERS[id].avatar) {
-        try { CHARACTERS[id].tex = await HeroTexture.load(`assets/heroes/${id}.jpg`, tracker); }
-        catch (e) { console.warn("hero image", id, e); }
-      }
-      const btn = document.querySelector(`.hero[data-id=${id}] small`);
-      if (btn) btn.textContent = CHARACTERS[id].avatar ? "3D" : CHARACTERS[id].tex ? "real" : "drawn";
-    }
-    tracker.releaseImageTasks();   // free the still-image detectors once references are prepared
+    // only the selected hero now; the others load when picked
+    msg(`Loading ${CHARACTERS[opts.character].name}…`);
+    await loadHero(opts.character);
     ready = true; msg("Ready. Start the camera.");
   } catch (e) { console.error(e); msg("Model load failed: " + e.message); }
   refresh();
@@ -80,7 +96,8 @@ addEventListener("keydown", e => {
 $("start").onclick = async () => {
   try {
     cam.srcObject = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false });
+      // phones: 640×480 is plenty for tracking and much cheaper to process every frame
+      video: { width: { ideal: MOBILE ? 640 : 1280 }, height: { ideal: MOBILE ? 480 : 720 }, facingMode: "user" }, audio: false });
     await cam.play();
     comp.resize(cam.videoWidth, cam.videoHeight, opts.format);
     running = true; refresh();
@@ -96,7 +113,8 @@ function loop(now) {
     const dt = Math.min(100, now - prev); prev = now;
     if (cam.currentTime !== lastVT && cam.readyState >= 2) {
       lastVT = cam.currentTime;
-      tracker.update(cam, now);
+      const ch = CHARACTERS[opts.character];
+      tracker.update(cam, now, { needMask: !(ch.avatar || ch.tex) });   // mask only for the drawn-suit fallback
       const open = tracker.hands.filter(palmOpen).length;
       const parts = [tracker.pose ? "body" : null, tracker.face ? "face" : null, `${open}/2 palms`].filter(Boolean);
       $("cTrack").textContent = parts.join(" · ");
