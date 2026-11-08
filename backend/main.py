@@ -6,9 +6,13 @@
 All motion capture + costume rendering runs in the browser; nothing about the camera feed reaches the server
 unless the user records and saves a clip.
 """
+import asyncio
+import logging
 import os
 import re
+import urllib.request
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -29,7 +33,38 @@ FILE_RE = re.compile(r"^[0-9a-f]{32}\.(webm|mp4|mov)$")
 # where the frontend lives when deployed separately (Vercel); used for the "suit up yourself" link
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "/")
 
-app = FastAPI(title="Suit Up")
+# ---------- keep-alive cron ----------
+# Render's free plan sleeps a service after 15 min with no incoming requests. Every 10 min we call our own
+# public URL; it goes through Render's proxy, so it counts as traffic and the service stays awake.
+# RENDER_EXTERNAL_URL is set by Render automatically, so this only runs there (never locally).
+PUBLIC_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+PING_EVERY = int(os.environ.get("KEEPALIVE_SECONDS", "600"))
+log = logging.getLogger("uvicorn.error")
+
+
+def _ping() -> int:
+    with urllib.request.urlopen(f"{PUBLIC_URL}/api/health", timeout=30) as r:
+        return r.status
+
+
+async def _keepalive():
+    while True:
+        await asyncio.sleep(PING_EVERY)
+        try:
+            log.info("keep-alive ping -> %s", await asyncio.to_thread(_ping))
+        except Exception as e:  # never let a failed ping kill the loop
+            log.warning("keep-alive ping failed: %s", e)
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    task = asyncio.create_task(_keepalive()) if PUBLIC_URL else None
+    yield
+    if task:
+        task.cancel()
+
+
+app = FastAPI(title="Suit Up", lifespan=lifespan)
 # the Vercel frontend calls this API cross-origin
 app.add_middleware(
     CORSMiddleware,
