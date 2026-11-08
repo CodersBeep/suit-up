@@ -8,11 +8,12 @@ import { Avatar3D } from "./avatar3d.js";
 
 // rigged 3D models (Mixamo skeleton). Heroes without one fall back to their photo.
 const MODELS = {
-  spiderman: { model: "assets/models/spiderman/spiderman.fbx", texture: "assets/models/spiderman/spiderman.jpg" },
+  spiderman: { model: "assets/models/spiderman/spiderman.glb", texture: "assets/models/spiderman/spiderman.jpg" },
   // 3ds Max Biped skeleton (bone names translated in avatar3d.js)
   spiderwoman: { model: "assets/models/spiderwoman/spiderwoman.fbx", texture: "assets/models/spiderwoman/SpiderGwen_tex.png" },
   // rigid armour pieces with no skeleton -> auto-rigged in the browser, painted red/gold metal
-  ironman: { model: "assets/models/ironman/ironman.fbx", autoRig: true, style: "ironman" },
+  // rig.json = joints detected once from the original model (no detection needed at load)
+  ironman: { model: "assets/models/ironman/ironman.glb", autoRig: true, rig: "assets/models/ironman/rig.json", style: "ironman" },
 };
 
 const $ = id => document.getElementById(id);

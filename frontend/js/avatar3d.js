@@ -6,6 +6,8 @@
 //   then the whole model is scaled/positioned so its head sits on your head in the camera image.
 import * as THREE from "three";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 const COVER = 1.12;     // hero head drawn this much bigger than yours, so it covers you
@@ -36,13 +38,11 @@ function basisQuat(lat, up) {
 // ---------- auto-rig for models made of rigid parts with no skeleton (e.g. armour) ----------
 // Renders the model from the front, finds its joints with the same body tracker we use on you,
 // builds a pivot "skeleton" at those joints and attaches every part to the nearest body segment.
-async function autoRig(obj, tracker) {
-  obj.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(obj);
-  const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
-
+// `saved` = joints found earlier (cfg.rig JSON): skips the render + detection, and keeps the rig identical.
+export async function detectRigPose(obj, tracker) {
+  const { c, viewW, viewH } = rigFrame(obj);
+  const RW = 500, RH = 800;
   // front render on white
-  const RW = 500, RH = 800, viewH = size.y * 1.05, viewW = viewH * RW / RH;
   const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   r.setSize(RW, RH, false); r.setClearColor(0xffffff);
   const sc = new THREE.Scene();
@@ -54,9 +54,23 @@ async function autoRig(obj, tracker) {
   r.render(sc, cam);
   const img = new Image(); img.src = r.domElement.toDataURL("image/png"); await img.decode();
   r.dispose(); sc.remove(obj); if (parent) parent.add(obj);
-
   const P = (await tracker.analyzeImage(img)).pose;
   if (!P) throw new Error("auto-rig: couldn't find a body in the model render");
+  return P.map(p => ({ x: p.x, y: p.y }));
+}
+
+// the model's front-view frame that pose coordinates (0..1) are measured in
+function rigFrame(obj) {
+  obj.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(obj);
+  const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  const viewH = size.y * 1.05, viewW = viewH * 500 / 800;
+  return { c, viewW, viewH };
+}
+
+async function autoRig(obj, tracker, saved) {
+  const { c, viewW, viewH } = rigFrame(obj);
+  const P = saved || await detectRigPose(obj, tracker);
   const J = i => new THREE.Vector3(c.x + (P[i].x - 0.5) * viewW, c.y + (0.5 - P[i].y) * viewH, c.z);
 
   const shL = J(L_SH), shR = J(R_SH), elL = J(L_EL), elR = J(R_EL), wrL = J(L_WR), wrR = J(R_WR);
@@ -135,9 +149,15 @@ function ironManMaterials(obj, bones) {
 export class Avatar3D {
   // cfg: { model, texture?, autoRig?, style? }
   static async load(cfg, tracker) {
-    const obj = await new FBXLoader().loadAsync(cfg.model);
+    // .glb = compressed (meshopt) models, a fraction of the size of the original FBX; .fbx still supported
+    const obj = cfg.model.endsWith(".glb")
+      ? (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(cfg.model)).scene
+      : await new FBXLoader().loadAsync(cfg.model);
     let bones = null;
-    if (cfg.autoRig) bones = await autoRig(obj, tracker);
+    if (cfg.autoRig) {
+      const saved = cfg.rig ? await fetch(cfg.rig).then(r => r.ok ? r.json() : null).catch(() => null) : null;
+      bones = await autoRig(obj, tracker, saved);
+    }
     if (cfg.texture) {
       const tex = await new THREE.TextureLoader().loadAsync(cfg.texture);
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -177,7 +197,8 @@ export class Avatar3D {
 
     // bones by short name (Hips, Spine, LeftArm, ...)
     this.b = bones || {};
-    if (!bones) obj.traverse(o => { if (o.isBone) this.b[BIPED[o.name] || name(o.name)] = o; });
+    // (glTF loads unskinned end markers like HeadTop_End as plain nodes, not bones — include those too)
+    if (!bones) obj.traverse(o => { if (o.isBone || /_End$/.test(o.name)) this.b[BIPED[o.name] || name(o.name)] = o; });
     // rigs without a head-top bone (e.g. 3ds Max Biped): add one above the head
     if (!this.b.HeadTop_End && this.b.Head && this.b.Neck && this.b.LeftArm && this.b.RightArm) {
       obj.updateMatrixWorld(true);

@@ -4,3 +4,5 @@
 - Free on CGTrader, Royalty Free License (no AI). The character is Marvel IP — fine for a personal prototype, not a product.
 - The file has no skeleton (110 separate armour pieces). The app auto-rigs it in the browser (`autoRig` in js/avatar3d.js)
   and repaints it red/gold metal (`ironManMaterials`).
+
+- `ironman.glb`: compressed (meshopt) conversion of the original `ironman.fbx`, which is in git history (commit 002abb8).
