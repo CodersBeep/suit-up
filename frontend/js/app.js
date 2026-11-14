@@ -11,9 +11,10 @@ const MODELS = {
   spiderman: { model: "assets/models/spiderman/spiderman.glb", texture: "assets/models/spiderman/spiderman.jpg" },
   // 3ds Max Biped skeleton (bone names translated in avatar3d.js)
   spiderwoman: { model: "assets/models/spiderwoman/spiderwoman.fbx", texture: "assets/models/spiderwoman/SpiderGwen_tex.png" },
-  // rigid armour pieces with no skeleton -> auto-rigged in the browser, painted red/gold metal
-  // rig.json = joints detected once from the original model (no detection needed at load)
-  ironman: { model: "assets/models/ironman/ironman.glb", autoRig: true, rig: "assets/models/ironman/rig.json", style: "ironman" },
+  // new FBX model — try with skeleton first; style: "ironman" paints the red/gold metal materials
+  ironman: { model: "assets/models/ironman/ironman_new.fbx", style: "ironman" },
+  // Brand New Day model has no skeleton — auto-rigged in the browser the same way as Iron Man
+  hulk: { model: "assets/models/hulk/hulk.glb", autoRig: true },
 };
 
 const $ = id => document.getElementById(id);
@@ -72,7 +73,7 @@ $("format").onchange = e => { opts.format = e.target.value; if (running) comp.se
 addEventListener("keydown", e => {
   if (/SELECT|INPUT/.test(document.activeElement?.tagName)) return;
   const ids = Object.keys(CHARACTERS);
-  if (["Digit1", "Digit2", "Digit3"].includes(e.code)) pickHero(ids[+e.code.slice(-1) - 1]);
+  if (["Digit1", "Digit2", "Digit3", "Digit4"].includes(e.code)) pickHero(ids[+e.code.slice(-1) - 1]);
   if (e.code === "Space" && running) {
     e.preventDefault();
     opts.mode = opts.mode === "full" ? "window" : "full"; $("mode").value = opts.mode;

@@ -16,7 +16,7 @@ const SMOOTH = 0.45;    // bone smoothing per frame (1 = no smoothing)
 // MediaPipe pose indices
 const L_SH = 11, R_SH = 12, L_EL = 13, R_EL = 14, L_WR = 15, R_WR = 16, L_PI = 17, R_PI = 18, L_IN = 19, R_IN = 20, L_HIP = 23, R_HIP = 24;
 
-const name = n => n.replace(/^mixamorig:?/, "");
+const name = n => n.replace(/^mixamorig:?/, "").replace(/_\d+$/, "");
 // 3ds Max "Biped" skeleton names (as sanitised by three.js) -> the Mixamo-style names used below
 const BIPED = {
   Bip001_Spine: "Spine", Bip001_Neck: "Neck", Bip001_Head: "Head",
@@ -172,6 +172,16 @@ export class Avatar3D {
       });
     }
     if (cfg.style === "ironman") ironManMaterials(obj, bones);
+    // For auto-rigged models with embedded textures (e.g. GLBs from Sketchfab):
+    // fix color space and disable frustum culling (bones get re-parented so the bounding box is stale).
+    if (cfg.autoRig && !cfg.texture && cfg.style !== "ironman") {
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        o.frustumCulled = false;
+        const fix = m => { if (m?.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.needsUpdate = true; } };
+        Array.isArray(o.material) ? o.material.forEach(fix) : fix(o.material);
+      });
+    }
     return new Avatar3D(obj, bones);
   }
 
@@ -212,6 +222,7 @@ export class Avatar3D {
     const need = ["Spine", "Neck", "Head", "HeadTop_End", "LeftArm", "LeftForeArm", "LeftHand", "RightArm", "RightForeArm", "RightHand", "LeftHandMiddle1", "RightHandMiddle1"];
     const missing = need.filter(n => !this.b[n]);
     if (missing.length) console.warn("Avatar3D: missing bones", missing);
+    console.log("Avatar3D: all bones found →", Object.keys(this.b));
 
     // rest pose: world rotation of every driven bone + the direction it points (to its child)
     this.group.updateMatrixWorld(true);

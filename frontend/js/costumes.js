@@ -210,6 +210,55 @@ export const CHARACTERS = {
     },
   },
 
+  hulk: {
+    name: "Hulk", scene: "nyc", accent: "#5adf5a", glow: "#2dff6e", shade: 0.75,
+    paint(g, r) {
+      const { W, H, body: b, head: hd } = r;
+      g.fillStyle = "#1a4d1a"; g.fillRect(0, 0, W, H);
+      if (b) {
+        // purple torn trousers
+        g.fillStyle = "#6b3fa0";
+        poly(g, [add(b.HL, mul(norm(sub(b.HL, b.HR)), b.sw * 0.9)),
+                 add(b.HR, mul(norm(sub(b.HR, b.HL)), b.sw * 0.9)),
+                 add(b.HR, mul(b.down, H)), add(b.HL, mul(b.down, H))]); g.fill();
+        // ragged tear lines on the trousers
+        g.strokeStyle = "#3d1f6b"; g.lineWidth = Math.max(1.5, b.sw * 0.01);
+        for (let i = 0; i < 4; i++) {
+          const y = add(b.HL, mul(b.down, b.tl * (0.15 + i * 0.12)));
+          g.beginPath(); g.moveTo(y.x - b.sw * 0.3, y.y); g.lineTo(y.x + b.sw * (0.1 + i * 0.05), y.y + b.tl * 0.04); g.stroke();
+        }
+        // green muscular arms — thick strokes
+        for (const arm of [[b.SL, b.EL, b.WL], [b.SR, b.ER, b.WR]]) {
+          g.strokeStyle = "#2d7a2d"; limb(g, arm, b.sw * 0.42);
+          g.strokeStyle = "#3daa3d"; limb(g, arm, b.sw * 0.3);
+        }
+      }
+      if (hd) {
+        g.save();
+        g.fillStyle = "#2d7a2d"; poly(g, scaledOval(hd.oval, hd.center, 1.18)); g.fill();
+        g.fillStyle = "#3daa3d"; poly(g, scaledOval(hd.oval, hd.center, 1.0)); g.fill();
+        g.restore();
+      }
+    },
+    overlay(g, r) {
+      if (!r.head) return;
+      const hd = r.head;
+      // angry brow ridge — dark heavy line above the eyes
+      g.save();
+      g.strokeStyle = "#1a3d1a"; g.lineWidth = hd.fw * 0.07; g.lineCap = "round";
+      const up = { x: Math.sin(hd.roll) * hd.fw * 0.14, y: -Math.cos(hd.roll) * hd.fw * 0.14 };
+      g.beginPath();
+      g.moveTo(hd.eyeA.x - hd.fw * 0.18 + up.x, hd.eyeA.y - hd.fw * 0.04 + up.y);
+      g.lineTo(hd.eyeA.x + hd.fw * 0.18 + up.x * 0.5, hd.eyeA.y + hd.fw * 0.04 + up.y * 0.5);
+      g.moveTo(hd.eyeB.x - hd.fw * 0.18 + up.x * 0.5, hd.eyeB.y + hd.fw * 0.04 + up.y * 0.5);
+      g.lineTo(hd.eyeB.x + hd.fw * 0.18 + up.x, hd.eyeB.y - hd.fw * 0.04 + up.y);
+      g.stroke();
+      // white eyes
+      eyes(g, hd, 0.85, "#ffffff", "#1a3d1a", 0.045);
+      g.restore();
+    },
+  },
+
   ironman: {
     name: "Iron Man", scene: "corridor", accent: "#ffc23d", glow: "#ff3b3b", shade: 0.62, metal: true,
     paint(g, r) {
